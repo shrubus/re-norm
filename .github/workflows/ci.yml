@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip 
+      uses: actions/cache@v4
+      with: 
+        path: ~/.cache/pip 
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml','**/requirements.txt') }}
+        restore-keys: | 
+          ${{ runner.os }}-pip-
+
+    - name: Install uv and dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install uv
+        uv sync
+
+    - name: Format check (Black)
+      run: uv run black --check src/ tests/
+
+    - name: Static type check (mypy) and lint (pylint) 
+      run: |
+        uv run mypy --strict src/
+        uv run mypy tests/
+        uv run pylint src/ tests/
+
+    - name: Check uv lockfile (Optional)
+      run: uv lock --check 
+
+    - name: Test
+      run: |
+        uv run python -m pytest -q tests
