@@ -32,7 +32,7 @@ class NormSpec(ABC):
         return self.pattern
 
 
-class NoSpec(NormSpec):
+class _NoSpec(NormSpec):
     """Singleton class that signal that a NormSpec is not provided (empty)"""
 
     _instance = None
@@ -50,7 +50,7 @@ class NoSpec(NormSpec):
         return group
 
 
-NOSPEC = NoSpec()
+NOSPEC = _NoSpec()
 
 
 @dataclass(frozen=True)
