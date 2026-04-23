@@ -7,7 +7,6 @@ import pytest
 import renorm as rn
 from .assert_utils import assert_pattern_correctly_compiled_from_specs
 
-
 # -----------------------------------------------------------
 # Test no matching pattern
 
