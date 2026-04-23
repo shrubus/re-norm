@@ -6,6 +6,7 @@ import re
 import itertools
 
 from .specs import NormSpec
+from .exceptions import PatternError, PatternIndexError, PatternKeyError
 
 
 class _Parser:  # pylint: disable=too-few-public-methods
@@ -22,10 +23,12 @@ class _Parser:  # pylint: disable=too-few-public-methods
     def _validate_raw_pattern(raw: str) -> str:
 
         if "(?P<" in raw:
-            raise ValueError("Named groups '(?P<...>)' are not allowed in the input regex pattern")
+            raise PatternError(
+                "Named groups '(?P<...>)' are not allowed in the input regex pattern"
+            )
 
         if "{}" in raw or "{@}" in raw:
-            raise ValueError(
+            raise PatternError(
                 f"Empty placeholders '{{}}' or '{{@}}' are not allowed: {raw}\n"
                 "\tUse numbered placeholders '{@0}, {@1}, ...' for positional specs\n"
                 "\tor named placeholders '{@a}, {@b}, ...' for named specs\n"
@@ -60,14 +63,14 @@ class _Parser:  # pylint: disable=too-few-public-methods
                 try:
                     spec = self.specs[int(key)]
                 except IndexError as err:
-                    raise IndexError(
+                    raise PatternIndexError(
                         f"Replacement index @{idx} out of range for positional specs tuple"
                     ) from err
             else:
                 try:
                     spec = self.named_specs[key]
                 except KeyError as err:
-                    raise KeyError(f"@{key}") from err
+                    raise PatternKeyError(f"@{key}") from err
 
             groupname = f"_spec_{next(counter)}"  # _spec_0, _spec_1
             groupname_to_spec[groupname] = spec
@@ -83,7 +86,7 @@ class _Parser:  # pylint: disable=too-few-public-methods
             try:
                 spec = self.specs[idx]
             except IndexError as err:
-                raise IndexError(
+                raise PatternIndexError(
                     f"Replacement index @{idx} out of range for positional specs tuple"
                 ) from err
             return f"{spec}"
@@ -97,7 +100,7 @@ class _Parser:  # pylint: disable=too-few-public-methods
             try:
                 spec = self.named_specs[key]
             except KeyError as err:
-                raise KeyError(f"@{key}") from err
+                raise PatternKeyError(f"@{key}") from err
             return f"{spec}"
 
         return re.sub(r"\{@([A-Za-z_]\w*)\}", repl, pattern)

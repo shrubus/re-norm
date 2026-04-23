@@ -28,23 +28,23 @@ def test_no_match_found():
 
 
 def test_invalid_syntax_empty_placeholder():
-    with pytest.raises(ValueError, match=r"Empty.*?{}.*?not allowed"):
+    with pytest.raises(rn.PatternError, match=r"Empty.*?{}.*?not allowed"):
         rn.compile(r"\w+:?\s({})", rn.Num())
 
 
 def test_invalid_syntax_incomplete_placeholder():
-    with pytest.raises(ValueError, match=r"Empty.*?{@}.*?not allowed"):
+    with pytest.raises(rn.PatternError, match=r"Empty.*?{@}.*?not allowed"):
         rn.compile(r"\w+:?\s({@})", rn.Num())
 
 
 def test_invalid_syntax_regex_named_groups():
     """Standard library re named groups are reserved to renorm engine"""
-    with pytest.raises(ValueError, match=r"Named groups.*?not allowed"):
+    with pytest.raises(rn.PatternError, match=r"Named groups.*?not allowed"):
         rn.compile(r"\w+:?\s(?P<group_name>{@0})", rn.Num())
 
 
 def test_missing_positional_spec():
-    with pytest.raises(IndexError, match="@1"):
+    with pytest.raises(rn.PatternIndexError, match="@1"):
         rn.compile(
             r"subtotal: ({@0}), total: ({@1})",
             rn.Num(ths=" ", dec="."),
@@ -52,7 +52,7 @@ def test_missing_positional_spec():
 
 
 def test_missing_named_spec():
-    with pytest.raises(KeyError, match="@total"):
+    with pytest.raises(rn.PatternKeyError, match="@total"):
         rn.compile(
             r"subtotal: ({@0}), total: ({@total})",
             rn.Num(ths=" ", dec="."),
