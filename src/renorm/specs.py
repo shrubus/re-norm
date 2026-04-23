@@ -94,5 +94,6 @@ class Num(NormSpec):
             return None
         if self.extraspace:
             group = re.sub(r"\s+", "", group)
-        group = re.sub(f"[{re.escape(self.ths)}]", "", group)
+        if self.ths:
+            group = re.sub(f"[{re.escape(self.ths)}]", "", group)
         return group.replace(self.dec, ".")

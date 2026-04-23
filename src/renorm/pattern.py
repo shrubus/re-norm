@@ -63,6 +63,8 @@ class Match:
 
     def group(self, idx: int) -> str | None:
         """Return captured group"""
+        if idx == 0:
+            return self._match.group()
         return self.groups()[idx - 1]
 
     def __getitem__(self, idx: int) -> str | None:
@@ -76,10 +78,11 @@ class Match:
 class Pattern:
     """renorm.Pattern object that exposes a minimal API similar to python native re.Pattern"""
 
-    __slots__ = ("_parser", "_flags")
+    __slots__ = ("_parser", "_flags", "compiled")
 
     _parser: _Parser
     _flags: _FlagsType
+    compiled: re.Pattern[str]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pylint: disable=unused-argument
         raise TypeError("renorm.Pattern objects cannot be instantiated directly")
@@ -90,7 +93,12 @@ class Pattern:
         self = object.__new__(cls)
         object.__setattr__(self, "_parser", parser)
         object.__setattr__(self, "_flags", flags)
+        object.__setattr__(self, "compiled", self._compile())
         return self
+
+    def _compile(self) -> re.Pattern[str]:
+        """Compile the python native re pattern constructed from renorm specs"""
+        return re.compile(self._parser.pattern, flags=self._flags)
 
     def __setattr__(self, name: str, _: Any) -> Never:
         """Freeze instance attributes"""
@@ -98,11 +106,6 @@ class Pattern:
             f"Cannot set {name} attribute: "
             f"{self.__class__.__name__} instance attributes are frozen"
         )
-
-    @property
-    def compiled(self) -> re.Pattern[str]:
-        """Compile the python native re pattern constructed from renorm specs"""
-        return re.compile(self._parser.pattern, flags=self._flags)
 
     @property
     def pattern(self) -> str:
