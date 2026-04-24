@@ -1,5 +1,5 @@
 [project]
-name = "re-norm"
+name = "renorm"
 version = "0.0.1"
 description = "Placeholder release to reserve the re-norm package name."
 readme = "README.md"
