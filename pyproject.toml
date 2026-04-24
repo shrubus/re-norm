@@ -1,19 +1,20 @@
 [project]
-name = "renorm"
-version = "0.1.0"
-description = "Regex normalization engine"
+name = "re-norm"
+version = "0.0.1"
+description = "Placeholder release to reserve the re-norm package name."
 readme = "README.md"
+license = { file = "LICENSE" }
 authors = [
     { name = "Ricardo M.P. da Silva", email = "rmpdasilva@gmail.com" }
 ]
-requires-python = ">=3.13"
-
-[project.scripts]
-re-norm = "renorm:main"
+requires-python = ">=3.10"
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "renorm"
 
 [dependency-groups]
 dev = [
@@ -22,6 +23,7 @@ dev = [
     "black>=26.3.1",
     "pytest>=9.0.3",
 ]
+
 
 [tool.black]
 target-version = ["py313"]

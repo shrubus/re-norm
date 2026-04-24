@@ -1,7 +1,15 @@
+# directory for todo's, notes, experiments,...
+.dev/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
+
+
+# VS Code
+.vscode
 
 # C extensions
 *.so

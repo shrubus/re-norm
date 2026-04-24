@@ -1,6 +1,3 @@
-"""Public API"""
+"""Placeholder package for renorm."""
 
-
-def main() -> None:
-    """Mock main function"""
-    print("Hello from re-norm!")
+__version__ = "0.0.1"
