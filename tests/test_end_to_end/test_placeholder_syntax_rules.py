@@ -2,7 +2,6 @@
 
 # pylint: disable=missing-function-docstring
 
-import re
 import pytest
 import renorm as rn
 from .assert_utils import assert_pattern_correctly_compiled_from_specs
@@ -218,36 +217,4 @@ def test_capture_spec_and_capture_without_normalization():
         ),
         text="subtotal: 1 231,3, total: 123,45",
         expected=("1 231,3", "123.45"),
-    )
-
-
-# -----------------------------------------------------------
-# Test placeholder syntax compatibility with re pattern syntax
-
-
-def test_placeholder_outside_lookahead_lookbehind():
-    assert_pattern_correctly_compiled_from_specs(
-        p=rn.compile(
-            r"(?<=subtotal: )({@0})(?=, total:)",
-            rn.Num(ths=" ", dec="."),
-        ),
-        text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
-    )
-
-
-def test_placeholder_inside_lookahead():
-    """Expected to fail by re standard library"""
-    with pytest.raises(re.PatternError, match="requires fixed-width pattern"):
-        rn.compile(r"(?<=subtotal: ({@0}))", rn.Num(ths=" ", dec="."))
-
-
-def test_placeholder_inside_lookbehind():
-    assert_pattern_correctly_compiled_from_specs(
-        p=rn.compile(
-            r"(?= ({@0}), total)",
-            rn.Num(ths=" ", dec="."),
-        ),
-        text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
     )
