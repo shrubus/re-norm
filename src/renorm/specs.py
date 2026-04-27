@@ -7,7 +7,7 @@ describes a precise grammar for a class of textual values and guarantees
 that matched groups can be transformed into a canonical representation.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from typing import Self
 import re
@@ -68,8 +68,20 @@ class Num(NormSpec):
     dec: str = "."
     signal: str = "-"
     extraspace: bool = False
+    valid_ths: tuple[str] = field(
+        default=("'", " ", ",", "", "\u00a0", "\u202f"),
+        init=False,
+    )
 
     def __post_init__(self) -> None:
+
+        if self.signal not in ["+", "-", ""]:
+            raise ValueError(f'Signal must be "+", "-" or "" (not specified): {self.signal}')
+        if self.dec not in [".", ","]:
+            raise ValueError(f'Decimal separator must be "," or ".": {self.dec}')
+        if self.ths not in self.valid_ths:
+            raise ValueError(f"Thousand separators must be in {self.valid_ths}: {self.ths}")
+
         common = set(self.dec) & set(self.ths) & set(self.signal)
         if common:
             raise ValueError(f"Args dec, ths and signal cannot have common characters: {common}")
@@ -81,10 +93,10 @@ class Num(NormSpec):
         """Construct plain number general pattern"""
         ws = r"\s?" if self.extraspace else ""
 
-        signal = rf"(?:[{re.escape(self.signal)}]?\s?)" if self.signal else ""
-        dec = rf"(?:{re.escape(self.dec)}{ws}\d*)"
-        ths = rf"(?:[{re.escape(self.ths)}]{ws}\d{{3}}{ws})*" if self.ths else ""
-        end = rf"\d{{0,3}}{ws}"
+        signal = rf"(?:{re.escape(self.signal)}\s?)?" if self.signal else ""
+        dec = rf"(?:[{re.escape(self.dec)}]{ws}\d*)"
+        ths = rf"(?:[{re.escape(self.ths)}]{ws}\d{{3}}{ws})*" if self.ths else r"\d+"
+        end = rf"\d{{0,3}}{ws}" if self.ths else ""
 
         return signal + end + ths + dec
 
@@ -92,8 +104,7 @@ class Num(NormSpec):
         """Normalize the captured number"""
         if group is None:
             return None
-        if self.extraspace:
-            group = re.sub(r"\s+", "", group)
         if self.ths:
             group = re.sub(f"[{re.escape(self.ths)}]", "", group)
+        group = re.sub(r"\s+", "", group)
         return group.replace(self.dec, ".")
