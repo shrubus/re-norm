@@ -1,10 +1,12 @@
 """Public API"""
 
-from .pattern import compile_, Pattern, Match
+from .pattern import Pattern, Match
+from .pattern import compile_ as _compile
 from .exceptions import PatternError, PatternIndexError, PatternKeyError
 from .specs import NormSpec, NOSPEC, Num
 
-compile = compile_  # pylint: disable=redefined-builtin
+compile = _compile  # pylint: disable=redefined-builtin
+del _compile
 
 # public symbols
 __all__ = [
