@@ -9,7 +9,7 @@ that matched groups can be transformed into a canonical representation.
 
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-from typing import Self
+from typing import Self, ClassVar
 import re
 
 
@@ -67,44 +67,76 @@ class Num(NormSpec):
     ths: str = ""
     dec: str = "."
     signal: str = "-"
-    extraspace: bool = False
-    valid_ths: tuple[str] = field(
-        default=("'", " ", ",", "", "\u00a0", "\u202f"),
-        init=False,
-    )
+    ungrouped: bool = True
+
+    _allowed_ths: ClassVar[str] = ",' ."
+    _allowed_dec: ClassVar[str] = ",."
+    _allowed_signal: ClassVar[str] = "-+"
+    _allowed_nbsp: ClassVar[str] = " \u00a0\u202f"
+
+    _ths: str = field(init=False, repr=False)
+    _all_ths: str = field(init=False, repr=False)
+    _invalid_ths: str = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
 
-        if self.signal not in ["+", "-", ""]:
-            raise ValueError(f'Signal must be "+", "-" or "" (not specified): {self.signal}')
-        if self.dec not in [".", ","]:
-            raise ValueError(f'Decimal separator must be "," or ".": {self.dec}')
-        if self.ths not in self.valid_ths:
-            raise ValueError(f"Thousand separators must be in {self.valid_ths}: {self.ths}")
+        # validation
+        for ch in self.signal:
+            if ch not in self._allowed_signal:
+                raise ValueError(f'Signal must be "+", "-" or "" (not specified): {ch}')
 
-        common = set(self.dec) & set(self.ths) & set(self.signal)
-        if common:
-            raise ValueError(f"Args dec, ths and signal cannot have common characters: {common}")
-        if len(self.dec) != 1:
-            raise ValueError(f"Can only specify one decimal separator: specified {self.dec}")
+        if len(self.dec) > 1:
+            raise ValueError(f"Can only specify one decimal separator: {self.dec}")
+        if self.dec not in self._allowed_dec:
+            raise ValueError(f'Decimal separator must be ",", "." or "" (integer): {self.dec}')
+
+        for ch in self.ths:
+            if ch not in self._allowed_ths:
+                raise ValueError(f"Thousand separators must be in {self._allowed_ths}: {ch}")
+
+        if overlap := set(self.dec) & set(self.ths):
+            raise ValueError(f"Args dec and ths cannot have common characters: {overlap}")
+        if overlap := set(self.dec) & set(self.signal):
+            raise ValueError(f"Args dec and signal cannot have common characters: {overlap}")
+        if overlap := set(self.ths) & set(self.signal):
+            raise ValueError(f"Args ths and signal cannot have common characters: {overlap}")
+
+        # construction
+        _ths = self.ths.replace(" ", self._allowed_nbsp)
+        _all_ths = self._allowed_ths.replace(self.dec, "").replace(" ", self._allowed_nbsp)
+        _invalid_ths = "".join(ch for ch in _all_ths if ch not in _ths)
+
+        object.__setattr__(self, "_ths", _ths)
+        object.__setattr__(self, "_all_ths", _all_ths)
+        object.__setattr__(self, "_invalid_ths", _invalid_ths)
 
     @property
     def pattern(self) -> str:
         """Construct plain number general pattern"""
-        ws = r"\s?" if self.extraspace else ""
 
         signal = rf"(?:{re.escape(self.signal)}\s?)?" if self.signal else ""
-        dec = rf"(?:[{re.escape(self.dec)}]{ws}\d*)"
-        ths = rf"(?:[{re.escape(self.ths)}]{ws}\d{{3}}{ws})*" if self.ths else r"\d+"
-        end = rf"\d{{0,3}}{ws}" if self.ths else ""
+        integer = rf"(?:\d{{1,3}}(?:[{re.escape(self._ths)}]\d{{3}})*)" if self._ths else r"(?:\d+)"
+        dec = rf"(?:[{re.escape(self.dec)}]\d+)" if self.dec else ""
 
-        return signal + end + ths + dec
+        pattern = rf"{signal}(?:{integer}{dec}?|{dec})" if dec else rf"{signal}{integer}"
+        return pattern
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
+
         if group is None:
             return None
-        if self.ths:
-            group = re.sub(f"[{re.escape(self.ths)}]", "", group)
+
+        if {ch for ch in group if ch in self._invalid_ths}:
+            return None
+
+        # exclude malformed numbers with mixed thousand separators:
+        is_mixed = len({ch for ch in group if ch in self._ths}) > 1
+        if is_mixed:
+            return None
+
+        if self._ths:
+            group = re.sub(f"[{re.escape(self._ths)}]", "", group)
+
         group = re.sub(r"\s+", "", group)
-        return group.replace(self.dec, ".")
+        return group.replace(self.dec, ".").replace("+", "")
