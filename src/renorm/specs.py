@@ -68,6 +68,7 @@ class Num(NormSpec):
     dec: str = "."
     signal: str = "-"
     ungrouped: bool = True
+    mixed: bool = False
 
     _allowed_ths: ClassVar[str] = ",' ."
     _allowed_dec: ClassVar[str] = ",."
@@ -114,10 +115,9 @@ class Num(NormSpec):
     def pattern(self) -> str:
         """Construct plain number general pattern"""
 
-        signal = rf"(?:{re.escape(self.signal)}\s?)?" if self.signal else ""
+        signal = rf"(?:[{re.escape(self.signal)}]\s?)?" if self.signal else ""
         integer = rf"(?:\d{{1,3}}(?:[{re.escape(self._ths)}]\d{{3}})*)" if self._ths else r"(?:\d+)"
         dec = rf"(?:[{re.escape(self.dec)}]\d+)" if self.dec else ""
-
         pattern = rf"{signal}(?:{integer}{dec}?|{dec})" if dec else rf"{signal}{integer}"
         return pattern
 
@@ -127,12 +127,16 @@ class Num(NormSpec):
         if group is None:
             return None
 
-        if {ch for ch in group if ch in self._invalid_ths}:
-            return None
-
         # exclude malformed numbers with mixed thousand separators:
         is_mixed = len({ch for ch in group if ch in self._ths}) > 1
-        if is_mixed:
+        if is_mixed and not self.mixed:
+            return None
+
+        if self.signal:
+            group = re.sub(r"([+-])\s", lambda m: m[1], group)
+
+        any_invalid = any({ch for ch in group if ch in self._invalid_ths})
+        if any_invalid:
             return None
 
         if self._ths:

@@ -54,15 +54,15 @@ test_data = [
     ("33.4", patterns["default"], ("33.4",)),
     ("-33.4", patterns["default"], ("-33.4",)),
     ("- 33.4", patterns["default"], ("-33.4",)),
-    # ("-  33.4", patterns["default"], ("-33.4",)),
+    ("-  33.4", patterns["default"], ("33.4",)),  # danger/ambiguity
     (f"-{nobr[0]}33.4", patterns["default"], ("-33.4",)),
     (f"-{nobr[1]}33.4", patterns["default"], ("-33.4",)),
     ("1333.4", patterns["default"], ("1333.4",)),
-    ("1 333.4", patterns["default"], ("333.4",)),  # WARN or RAISE!
-    ("1'333.4", patterns["default"], ("333.4",)),  # WARN or RAISE!
-    ("1,333.4", patterns["default"], ("333.4",)),  # WARN or RAISE!
-    (f"1{nobr[0]}333.4", patterns["default"], ("333.4",)),  # WARN or RAISE!
-    (f"1{nobr[1]}333.4", patterns["default"], ("333.4",)),  # WARN or RAISE!
+    ("1 333.4", patterns["default"], (None,)),
+    ("1'333.4", patterns["default"], (None,)),
+    ("1,333.4", patterns["default"], (None,)),
+    (f"1{nobr[0]}333.4", patterns["default"], (None,)),
+    (f"1{nobr[1]}333.4", patterns["default"], (None,)),
 ]
 
 
