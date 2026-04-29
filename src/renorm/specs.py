@@ -54,7 +54,7 @@ NOSPEC = _NoSpec()
 
 
 @dataclass(frozen=True)
-class Num(NormSpec):
+class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
     """
     Declarative specification for plain (non-scientific) numeric literals.
 
@@ -69,6 +69,7 @@ class Num(NormSpec):
     signal: str = "-"
     ungrouped: bool = True
     mixed: bool = True
+    extraspace: int = 3
 
     _allowed_ths: ClassVar[str] = ",' ."
     _allowed_dec: ClassVar[str] = ",."
@@ -117,18 +118,67 @@ class Num(NormSpec):
     @property
     def pattern(self) -> str:
         """Matches everything that resembles a number"""
-        extraspace = 3
 
-        xs = rf"\s{{0,{extraspace}}}"
+        xs = rf"\s{{0,{self.extraspace}}}"
         sep = rf"{xs}[;._,']?{xs}"
         signal = r"(?:[\+\-]\s?)"
         return rf"{signal}?(?:{sep}\d+)+"
 
-    @property
-    def num_pattern(self) -> str:
+    def _select_num_candidate(self, group: str | None) -> str | None:
         """Construct plain number general pattern"""
+
+        if group is None:
+            return None
+
+        xs = rf"\s{{0,{self.extraspace}}}"
+        sep = rf"{xs}[;._,']?{xs}"
+
+        signal = r"(?:[\+\-]\s?)"
+        core = rf"(?:\d{{0,3}}(?:{sep}\d{{3}})*)"
+        dec = rf"(?:{sep}\d+)"
+
+        p_grouped = rf"{signal}?{xs}{core}{dec}?"
+        p_ungrouped = rf"{signal}?{xs}\d+{dec}?"
+
+        m_grouped = re.search(p_grouped, group)
+        if m_grouped is None:
+            return None
+
+        num_grouped = m_grouped.group()
+        if len(num_grouped) == len(group):
+            return num_grouped
+
+        m_ungrouped = re.search(p_ungrouped, group)
+        if m_ungrouped is None:
+            return None
+
+        num_ungrouped = m_ungrouped.group()
+        if len(num_ungrouped) == len(group):
+            return num_ungrouped
+        return None
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
 
-        return group
+        group = self._select_num_candidate(group)
+
+        if group is None:
+            return None
+
+        # exclude numbers with mixed thousand separators:
+        is_mixed = len({ch for ch in group if ch in self._ths}) > 1
+        if is_mixed and not self.mixed:
+            return None
+
+        if self.signal:
+            group = re.sub(r"([+-])\s", lambda m: m[1], group)
+
+        any_invalid = any({ch for ch in group if ch in self._invalid_ths})
+        if any_invalid:
+            return None
+
+        if self._ths:
+            group = re.sub(f"[{re.escape(self._ths)}]", "", group)
+
+        group = re.sub(r"\s+", "", group)
+        return group.replace(self.dec, ".").replace("+", "")
