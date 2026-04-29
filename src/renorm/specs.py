@@ -64,11 +64,11 @@ class Num(NormSpec):
     canonical dot-decimal representation.
     """
 
-    ths: str = ""
+    ths: str = "all"
     dec: str = "."
     signal: str = "-"
     ungrouped: bool = True
-    mixed: bool = False
+    mixed: bool = True
 
     _allowed_ths: ClassVar[str] = ",' ."
     _allowed_dec: ClassVar[str] = ",."
@@ -91,9 +91,12 @@ class Num(NormSpec):
         if self.dec not in self._allowed_dec:
             raise ValueError(f'Decimal separator must be ",", "." or "" (integer): {self.dec}')
 
-        for ch in self.ths:
-            if ch not in self._allowed_ths:
-                raise ValueError(f"Thousand separators must be in {self._allowed_ths}: {ch}")
+        if self.ths != "all":
+            for ch in self.ths:
+                if ch not in self._allowed_ths:
+                    raise ValueError(f"Thousand separators must be in {self._allowed_ths}: {ch}")
+        else:
+            object.__setattr__(self, "ths", self._allowed_ths.replace(self.dec, ""))
 
         if overlap := set(self.dec) & set(self.ths):
             raise ValueError(f"Args dec and ths cannot have common characters: {overlap}")
@@ -116,9 +119,16 @@ class Num(NormSpec):
         """Construct plain number general pattern"""
 
         signal = rf"(?:[{re.escape(self.signal)}]\s?)?" if self.signal else ""
-        integer = rf"(?:\d{{1,3}}(?:[{re.escape(self._ths)}]\d{{3}})*)" if self._ths else r"(?:\d+)"
+
+        # grouping_option = "?" if self.ungrouped else ""
+        integer = (
+            rf"(?:\d{{1,3}}(?:[{re.escape(self._ths)}]?\d{{3}})*)" if self._ths else r"(?:\d+)"
+        )
         dec = rf"(?:[{re.escape(self.dec)}]\d+)" if self.dec else ""
-        pattern = rf"{signal}(?:{integer}{dec}?|{dec})" if dec else rf"{signal}{integer}"
+        suffix = r"(?!.\d)\b"
+        prefix = rf"(?<![{re.escape(self.dec)}]?\d{{3}}))"
+
+        pattern = rf"{prefix}{signal}\b(?:{integer}{dec}?|{dec}){suffix}"  # if dec else rf"{signal}{integer}{suffix}"
         return pattern
 
     def normalize(self, group: str | None) -> str | None:
