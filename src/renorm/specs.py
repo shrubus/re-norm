@@ -116,41 +116,19 @@ class Num(NormSpec):
 
     @property
     def pattern(self) -> str:
+        """Matches everything that resembles a number"""
+        extraspace = 3
+
+        xs = rf"\s{{0,{extraspace}}}"
+        sep = rf"{xs}[;._,']?{xs}"
+        signal = r"(?:[\+\-]\s?)"
+        return rf"{signal}?(?:{sep}\d+)+"
+
+    @property
+    def num_pattern(self) -> str:
         """Construct plain number general pattern"""
-
-        signal = rf"(?:[{re.escape(self.signal)}]\s?)?" if self.signal else ""
-
-        # grouping_option = "?" if self.ungrouped else ""
-        integer = (
-            rf"(?:\d{{1,3}}(?:[{re.escape(self._ths)}]?\d{{3}})*)" if self._ths else r"(?:\d+)"
-        )
-        dec = rf"(?:[{re.escape(self.dec)}]\d+)" if self.dec else ""
-        suffix = r"(?!.\d)\b"
-        prefix = rf"(?<![{re.escape(self.dec)}]?\d{{3}}))"
-
-        pattern = rf"{prefix}{signal}\b(?:{integer}{dec}?|{dec}){suffix}"  # if dec else rf"{signal}{integer}{suffix}"
-        return pattern
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
 
-        if group is None:
-            return None
-
-        # exclude malformed numbers with mixed thousand separators:
-        is_mixed = len({ch for ch in group if ch in self._ths}) > 1
-        if is_mixed and not self.mixed:
-            return None
-
-        if self.signal:
-            group = re.sub(r"([+-])\s", lambda m: m[1], group)
-
-        any_invalid = any({ch for ch in group if ch in self._invalid_ths})
-        if any_invalid:
-            return None
-
-        if self._ths:
-            group = re.sub(f"[{re.escape(self._ths)}]", "", group)
-
-        group = re.sub(r"\s+", "", group)
-        return group.replace(self.dec, ".").replace("+", "")
+        return group
