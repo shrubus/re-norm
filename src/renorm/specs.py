@@ -7,10 +7,11 @@ describes a precise grammar for a class of textual values and guarantees
 that matched groups can be transformed into a canonical representation.
 """
 
+import re
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from typing import Self, ClassVar
-import re
+from functools import cached_property
 
 
 class NormSpec(ABC):
@@ -51,6 +52,14 @@ class _NoSpec(NormSpec):
 
 
 NOSPEC = _NoSpec()
+
+
+@dataclass(frozen=True)
+class _NumSubPatterns:
+    signal: str
+    xs: str
+    sep: str
+    decimal: str
 
 
 @dataclass(frozen=True)
@@ -115,91 +124,55 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
         object.__setattr__(self, "_all_ths", _all_ths)
         object.__setattr__(self, "_invalid_ths", _invalid_ths)
 
-    @property
+    @cached_property
+    def _sub_patterns(self) -> _NumSubPatterns:
+
+        signal = r"(?:[\+\-]\s?)"
+        xs = rf"\s{{0,{self.extraspace}}}"
+        sep = rf"{xs}[;._,']?{xs}"
+        decimal = rf"(?:{sep}\d+)"
+
+        return _NumSubPatterns(signal, xs, sep, decimal)
+
+    @cached_property
     def pattern(self) -> str:
         """Matches everything that resembles a number"""
 
-        xs = rf"\s{{0,{self.extraspace}}}"
-        sep = rf"{xs}[;._,']?{xs}"
-        signal = r"(?:[\+\-]\s?)"
-        return rf"{signal}?(?:{sep}\d+)+"
+        sp = self._sub_patterns
+        return rf"{sp.signal}?(?:{sp.sep}\d+)+"
+
+    def _match_full(self, group: str | None, num_floor: str) -> str | None:
+
+        if group is None:
+            return None
+
+        sp = self._sub_patterns
+        p = re.compile(rf"{sp.signal}?{sp.xs}{num_floor}{sp.decimal}?")
+
+        m = p.search(group)
+        if m is None or m.group() != group:
+            return None
+        return group
+
+    def _select_grouped(self, group: str | None) -> str | None:
+
+        sp = self._sub_patterns
+        num_floor = rf"(?:\d{{0,3}}(?:{sp.sep}\d{{3}})*)"
+        return self._match_full(group, num_floor)
+
+    def _select_ungrouped(self, group: str | None) -> str | None:
+
+        num_floor = r"\d+"
+        return self._match_full(group, num_floor)
 
     def _select_num_candidate(self, group: str | None) -> str | None:
         """Construct plain number general pattern"""
-
-        # if group is None:
-        #     return None
-
-        # xs = rf"\s{{0,{self.extraspace}}}"
-        # sep = rf"{xs}[;._,']?{xs}"
-
-        # signal = r"(?:[\+\-]\s?)"
-        # core = rf"(?:\d{{0,3}}(?:{sep}\d{{3}})*)"
-        # dec = rf"(?:{sep}\d+)"
-
-        # p_grouped = rf"{signal}?{xs}{core}{dec}?"
-        # p_ungrouped = rf"{signal}?{xs}\d+{dec}?"
-
-        # m_grouped = re.search(p_grouped, group)
-        # if m_grouped is None:
-        #     return None
-
-        # num_grouped = m_grouped.group()
-        # if len(num_grouped) == len(group):
-        #     return num_grouped
-
-        # m_ungrouped = re.search(p_ungrouped, group)
-        # if m_ungrouped is None:
-        #     return None
-
-        # num_ungrouped = m_ungrouped.group()
-        # if len(num_ungrouped) == len(group):
-        #     return num_ungrouped
-        # return None
 
         grouped = self._select_grouped(group)
         if grouped is not None:
             return grouped
 
         return self._select_ungrouped(group)
-
-    def _select_grouped(self, group: str | None) -> str | None:
-
-        if group is None:
-            return None
-
-        xs = rf"\s{{0,{self.extraspace}}}"
-        sep = rf"{xs}[;._,']?{xs}"
-
-        signal = r"(?:[\+\-]\s?)"
-        grouped = rf"(?:\d{{0,3}}(?:{sep}\d{{3}})*)"
-        decimal = rf"(?:{sep}\d+)"
-
-        p = re.compile(rf"{signal}?{xs}{grouped}{decimal}?")
-
-        m = p.search(group)
-        if m is None or m.group() != group:
-            return None
-        return group
-
-    def _select_ungrouped(self, group: str | None) -> str | None:
-
-        if group is None:
-            return None
-
-        xs = rf"\s{{0,{self.extraspace}}}"
-        sep = rf"{xs}[;._,']?{xs}"
-
-        signal = r"(?:[\+\-]\s?)"
-        ungrouped = r"\d+"
-        decimal = rf"(?:{sep}\d+)"
-
-        p = re.compile(rf"{signal}?{xs}{ungrouped}{decimal}?")
-
-        m = p.search(group)
-        if m is None or m.group() != group:
-            return None
-        return group
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
