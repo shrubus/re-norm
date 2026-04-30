@@ -127,6 +127,44 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
     def _select_num_candidate(self, group: str | None) -> str | None:
         """Construct plain number general pattern"""
 
+        # if group is None:
+        #     return None
+
+        # xs = rf"\s{{0,{self.extraspace}}}"
+        # sep = rf"{xs}[;._,']?{xs}"
+
+        # signal = r"(?:[\+\-]\s?)"
+        # core = rf"(?:\d{{0,3}}(?:{sep}\d{{3}})*)"
+        # dec = rf"(?:{sep}\d+)"
+
+        # p_grouped = rf"{signal}?{xs}{core}{dec}?"
+        # p_ungrouped = rf"{signal}?{xs}\d+{dec}?"
+
+        # m_grouped = re.search(p_grouped, group)
+        # if m_grouped is None:
+        #     return None
+
+        # num_grouped = m_grouped.group()
+        # if len(num_grouped) == len(group):
+        #     return num_grouped
+
+        # m_ungrouped = re.search(p_ungrouped, group)
+        # if m_ungrouped is None:
+        #     return None
+
+        # num_ungrouped = m_ungrouped.group()
+        # if len(num_ungrouped) == len(group):
+        #     return num_ungrouped
+        # return None
+
+        grouped = self._select_grouped(group)
+        if grouped is not None:
+            return grouped
+
+        return self._select_ungrouped(group)
+
+    def _select_grouped(self, group: str | None) -> str | None:
+
         if group is None:
             return None
 
@@ -134,28 +172,34 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
         sep = rf"{xs}[;._,']?{xs}"
 
         signal = r"(?:[\+\-]\s?)"
-        core = rf"(?:\d{{0,3}}(?:{sep}\d{{3}})*)"
-        dec = rf"(?:{sep}\d+)"
+        grouped = rf"(?:\d{{0,3}}(?:{sep}\d{{3}})*)"
+        decimal = rf"(?:{sep}\d+)"
 
-        p_grouped = rf"{signal}?{xs}{core}{dec}?"
-        p_ungrouped = rf"{signal}?{xs}\d+{dec}?"
+        p = re.compile(rf"{signal}?{xs}{grouped}{decimal}?")
 
-        m_grouped = re.search(p_grouped, group)
-        if m_grouped is None:
+        m = p.search(group)
+        if m is None or m.group() != group:
+            return None
+        return group
+
+    def _select_ungrouped(self, group: str | None) -> str | None:
+
+        if group is None:
             return None
 
-        num_grouped = m_grouped.group()
-        if len(num_grouped) == len(group):
-            return num_grouped
+        xs = rf"\s{{0,{self.extraspace}}}"
+        sep = rf"{xs}[;._,']?{xs}"
 
-        m_ungrouped = re.search(p_ungrouped, group)
-        if m_ungrouped is None:
+        signal = r"(?:[\+\-]\s?)"
+        ungrouped = r"\d+"
+        decimal = rf"(?:{sep}\d+)"
+
+        p = re.compile(rf"{signal}?{xs}{ungrouped}{decimal}?")
+
+        m = p.search(group)
+        if m is None or m.group() != group:
             return None
-
-        num_ungrouped = m_ungrouped.group()
-        if len(num_ungrouped) == len(group):
-            return num_ungrouped
-        return None
+        return group
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
