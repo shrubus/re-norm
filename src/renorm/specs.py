@@ -129,7 +129,7 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
 
         signal = r"(?:[\+\-]\s?)"
         xs = rf"\s{{0,{self.extraspace}}}"
-        sep = rf"{xs}[;._,']?{xs}"
+        sep = rf"{xs}[;._,']?{xs}" if self._ths else ""
         decimal = rf"(?:{sep}\d+)"
 
         return _NumSubPatterns(signal, xs, sep, decimal)
@@ -141,52 +141,50 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
         sp = self._sub_patterns
         return rf"{sp.signal}?(?:{sp.sep}\d+)+"
 
-    def _match_full(self, group: str | None, num_floor: str) -> str | None:
-
-        if group is None:
-            return None
+    def _is_full_match(self, group: str, num_floor: str) -> bool:
 
         sp = self._sub_patterns
         p = re.compile(rf"{sp.signal}?{sp.xs}{num_floor}{sp.decimal}?")
+        return p.fullmatch(group) is not None
 
-        m = p.search(group)
-        if m is None or m.group() != group:
-            return None
-        return group
-
-    def _select_grouped(self, group: str | None) -> str | None:
+    def _is_grouped(self, group: str) -> bool:
 
         sp = self._sub_patterns
-        num_floor = rf"(?:\d{{0,3}}(?:{sp.sep}\d{{3}})*)"
-        return self._match_full(group, num_floor)
+        grouped = rf"(?:\d{{0,3}}(?:{sp.sep}\d{{3}})*)"
+        return self._is_full_match(group, num_floor=grouped)
 
-    def _select_ungrouped(self, group: str | None) -> str | None:
+    def _is_ungrouped(self, group: str) -> bool:
 
-        num_floor = r"\d+"
-        return self._match_full(group, num_floor)
+        if not self.ungrouped:
+            return False
 
-    def _select_num_candidate(self, group: str | None) -> str | None:
-        """Construct plain number general pattern"""
+        return self._is_full_match(group, num_floor=r"\d+")
 
-        grouped = self._select_grouped(group)
-        if grouped is not None:
-            return grouped
+    def _is_number_candidate(self, group: str) -> bool:
 
-        return self._select_ungrouped(group)
+        return self._is_ungrouped(group) or self._is_grouped(group)
+
+    def _is_mixed(self, group: str) -> bool:
+
+        if self._is_ungrouped(group):
+            return False
+
+        return len({ch for ch in group if ch in self._ths}) > 1
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
 
-        group = self._select_num_candidate(group)
-
         if group is None:
             return None
 
-        # exclude numbers with mixed thousand separators:
-        is_mixed = len({ch for ch in group if ch in self._ths}) > 1
-        if is_mixed and not self.mixed:
+        if not self._is_number_candidate(group):
             return None
 
+        # exclude numbers with mixed thousand separators
+        if not self.mixed and self._is_mixed(group):
+            return None
+
+        # remove signal trailing space (ambiguity with space as ths separator)
         if self.signal:
             group = re.sub(r"([+-])\s", lambda m: m[1], group)
 
