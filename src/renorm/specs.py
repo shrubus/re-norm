@@ -56,10 +56,11 @@ NOSPEC = _NoSpec()
 
 @dataclass(frozen=True)
 class _NumSubPatterns:
-    signal: str
     xs: str
-    sep: str
-    decimal: str
+    all_sep: str
+    ths_sep: str
+    dec_sep: str
+    signal: str
 
 
 @dataclass(frozen=True)
@@ -73,103 +74,104 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
     canonical dot-decimal representation.
     """
 
-    ths: str = "all"
-    dec: str = "."
-    signal: str = "-"
-    ungrouped: bool = True
-    mixed: bool = True
-    extraspace: int = 3
+    _all_ths: ClassVar[str] = ".,' "
+    _all_dec: ClassVar[str] = ".,"
+    _all_signal: ClassVar[str] = "-+"
 
-    _allowed_ths: ClassVar[str] = ",' ."
-    _allowed_dec: ClassVar[str] = ",."
-    _allowed_signal: ClassVar[str] = "-+"
-    _allowed_nbsp: ClassVar[str] = " \u00a0\u202f"
+    ths: str = _all_ths
+    dec: str = "."  # default "."
+    signal: str = _all_signal
+    ungrouped: bool = True  # default True
+    mixed: bool = False  # default False
+    extraspace: int = 0  # default 0
 
     _ths: str = field(init=False, repr=False)
-    _all_ths: str = field(init=False, repr=False)
-    _invalid_ths: str = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
 
         # validation
-        for ch in self.signal:
-            if ch not in self._allowed_signal:
-                raise ValueError(f'Signal must be "+", "-" or "" (not specified): {ch}')
-
-        if len(self.dec) > 1:
-            raise ValueError(f"Can only specify one decimal separator: {self.dec}")
-        if self.dec not in self._allowed_dec:
+        if not set(self.signal) <= set(self._all_signal):
+            raise ValueError(f'Signal must be "+", "-" or "" (not specified): {self.signal}')
+        if not set(self.ths) <= set(self._all_ths):
+            raise ValueError(f'Thousand separators must be in {self._all_ths} or "": {self.ths}')
+        if not (len(self.dec) == 1 or self.dec == ""):
+            raise ValueError(f"Specified more than one decimal separator: {self.dec}")
+        if not set(self.dec) <= set(self._all_dec):
             raise ValueError(f'Decimal separator must be ",", "." or "" (integer): {self.dec}')
 
-        if self.ths != "all":
-            for ch in self.ths:
-                if ch not in self._allowed_ths:
-                    raise ValueError(f"Thousand separators must be in {self._allowed_ths}: {ch}")
-        else:
-            object.__setattr__(self, "ths", self._allowed_ths.replace(self.dec, ""))
-
-        if overlap := set(self.dec) & set(self.ths):
-            raise ValueError(f"Args dec and ths cannot have common characters: {overlap}")
-        if overlap := set(self.dec) & set(self.signal):
-            raise ValueError(f"Args dec and signal cannot have common characters: {overlap}")
-        if overlap := set(self.ths) & set(self.signal):
-            raise ValueError(f"Args ths and signal cannot have common characters: {overlap}")
-
         # construction
-        _ths = self.ths.replace(" ", self._allowed_nbsp)
-        _all_ths = self._allowed_ths.replace(self.dec, "").replace(" ", self._allowed_nbsp)
-        _invalid_ths = "".join(ch for ch in _all_ths if ch not in _ths)
-
-        object.__setattr__(self, "_ths", _ths)
-        object.__setattr__(self, "_all_ths", _all_ths)
-        object.__setattr__(self, "_invalid_ths", _invalid_ths)
+        object.__setattr__(self, "_ths", self.ths.replace(self.dec, "").replace(" ", r"\s"))
 
     @cached_property
     def _sub_patterns(self) -> _NumSubPatterns:
 
-        signal = r"(?:[\+\-]\s?)"
-        xs = rf"\s{{0,{self.extraspace}}}"
-        sep = rf"{xs}[;._,']?{xs}" if self._ths else ""
-        decimal = rf"(?:{sep}\d+)"
+        all_sep_symbols = f"{self._all_ths};_".replace(" ", r"\s")
 
-        return _NumSubPatterns(signal, xs, sep, decimal)
+        xs = rf"\s{{0,{self.extraspace}}}" if self.extraspace > 0 else ""
+
+        all_sep = rf"{xs}[{all_sep_symbols}]?{xs}"
+        ths_sep = rf"{xs}[{self._ths}]{xs}" if self._ths else ""
+        dec_sep = rf"{xs}[{self.dec}]{xs}" if self.dec else ""
+        print(f"{ths_sep=}")
+        print(f"{dec_sep=}")
+
+        signal = rf"(?:[{self.signal}]\s?)?" if self.signal else ""
+
+        return _NumSubPatterns(xs, all_sep, ths_sep, dec_sep, signal)
 
     @cached_property
     def pattern(self) -> str:
-        """Matches everything that resembles a number"""
+        """
+        Very permissive pattern that greedly matches string fragments that resemble
+        a numeric string representation.
+        """
 
         sp = self._sub_patterns
-        return rf"{sp.signal}?(?:{sp.sep}\d+)+"
+        return rf"{sp.signal}(?:{sp.all_sep}\d+)+"
 
-    def _is_full_match(self, group: str, num_floor: str) -> bool:
+    def _is_full_match(self, group: str, num_floor: str, decimal: str) -> bool:
 
         sp = self._sub_patterns
-        p = re.compile(rf"{sp.signal}?{sp.xs}{num_floor}{sp.decimal}?")
+        num_pattern = rf"{sp.signal}{sp.xs}{num_floor}{decimal}?"
+
+        print(f"{num_pattern=}")
+        p = re.compile(num_pattern)
         return p.fullmatch(group) is not None
 
     def _is_grouped(self, group: str) -> bool:
 
+        if self._ths == "":
+            return False
+
         sp = self._sub_patterns
-        grouped = rf"(?:\d{{0,3}}(?:{sp.sep}\d{{3}})*)"
-        return self._is_full_match(group, num_floor=grouped)
+        if not self.mixed:
+            same_ths_sep = rf"(?:\d{{0,3}}(?:({sp.ths_sep})\d{{3}})?(?:\1\d{{3}})*)"
+            whitespace = r"(?:\d{0,3}(?:\s\d{3})*)"
+            grouped = f"(?:{same_ths_sep}|{whitespace})"
+        else:
+            grouped = rf"(?:\d{{0,3}}(?:({sp.ths_sep})\d{{3}})*)"
+        decimal = rf"(?:{sp.dec_sep}\d+)"
+        return self._is_full_match(group, num_floor=grouped, decimal=decimal)
 
     def _is_ungrouped(self, group: str) -> bool:
 
         if not self.ungrouped:
             return False
 
-        return self._is_full_match(group, num_floor=r"\d+")
+        sp = self._sub_patterns
+        ungrouped = r"\d+"
+        decimal = rf"(?:{sp.dec_sep}\d+)"
+        return self._is_full_match(group, num_floor=ungrouped, decimal=decimal)
 
     def _is_number_candidate(self, group: str) -> bool:
-
-        return self._is_ungrouped(group) or self._is_grouped(group)
-
-    def _is_mixed(self, group: str) -> bool:
-
         if self._is_ungrouped(group):
-            return False
-
-        return len({ch for ch in group if ch in self._ths}) > 1
+            print("ungrouped".upper())
+            return True
+        if self._is_grouped(group):
+            print("grouped".upper())
+            return True
+        print("not a number".upper())
+        return False
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
@@ -180,17 +182,9 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
         if not self._is_number_candidate(group):
             return None
 
-        # exclude numbers with mixed thousand separators
-        if not self.mixed and self._is_mixed(group):
-            return None
-
         # remove signal trailing space (ambiguity with space as ths separator)
         if self.signal:
             group = re.sub(r"([+-])\s", lambda m: m[1], group)
-
-        any_invalid = any({ch for ch in group if ch in self._invalid_ths})
-        if any_invalid:
-            return None
 
         if self._ths:
             group = re.sub(f"[{re.escape(self._ths)}]", "", group)

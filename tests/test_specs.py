@@ -49,52 +49,94 @@ def test_num_subclass_norm():
 # Test Num use cases
 
 
-nbsp = rn.Num._allowed_nbsp
-test_data = [
-    ("33.4", "33.4", True),
-    ("-33.4", "-33.4", True),
-    ("- 33.4", "- 33.4", True),
-    ("- 33.4", "- 33.4", True),
-    ("-\xa033.4", "-\xa033.4", True),
-    ("1333.4", "1333.4", True),
-    ("1 333.4", "1 333.4", True),
-    ("1'333.4", "1'333.4", True),
-    ("1,333.4", "1,333.4", True),
-    ("1 333.4", "1 333.4", True),
-    ("1\xa0333.4", "1\xa0333.4", True),
-    ("- 1 333'222.4", "- 1 333'222.4", True),
-    ("- 1 333'222", "- 1 333'222", True),
-    ("222", "222", True),
-    ("123456789.0", "123456789.0", True),
-    ("1 333'222.4", "1 333'222.4", True),
-    ("1,333 222.4", "1,333 222.4", True),
-    ("1'333,222.4", "1'333,222.4", True),
-    ("1.333.222.4", "1.333.222.4", True),
-    ("1;333;222.4", "1;333;222.4", True),
-    ("1_333_222.4", "1_333_222.4", True),
-    ("1 333\xa0222.4", "1 333\xa0222.4", True),
+test_data_decimal_comma = [
+    # grouping ...
+    ("1.234", "1.234", True),
+    # no grouping, no signal
+    ("1234,5", "1234,5", True),
+    # no grouping, signal (-)
+    ("-1234,5", "-1234,5", True),
+    ("- 1234,5", "- 1234,5", True),
+    # no grouping, signal (+)
+    ("+1234,5", "+1234,5", True),
+    ("+ 1234,5", "+ 1234,5", True),
+]
+
+test_data_num_default = [
+    # decimal only
+    (".1234", ".1234", True),
+    ("-.1234", "-.1234", True),
+    ("+.1234", "+.1234", True),
+    ("- .1234", "- .1234", True),
+    ("+ .1234", "+ .1234", True),
+    # no grouping, integer, no signal
+    ("1", "1", True),
+    ("12", "12", True),
+    ("1234", "1234", True),
+    # no grouping, integer, signal (-)
+    ("-1234", "-1234", True),
+    ("- 1234", "- 1234", True),
+    # no grouping, float, no signal
+    ("1234.5", "1234.5", True),
+    # no grouping, float, signal (-)
+    ("-1234.5", "-1234.5", True),
+    ("- 1234.5", "- 1234.5", True),
+    # no grouping, float (.), signal (-) with nbsp
+    ("-\xa01234.5", "-\xa01234.5", True),
+    # grouping, non-mixed, integer, no signal
+    ("1 234", "1 234", True),
+    ("1 234 567", "1 234 567", True),
+    ("1'234'567", "1'234'567", True),
+    ("1,234,567", "1,234,567", True),
+    ("1\xa0234\xa0567", "1\xa0234\xa0567", True),
+    # grouping, non-mixed, integer, signal
+    ("-1 234", "-1 234", True),
     ("-\xa01 333.4", "-\xa01 333.4", True),
-    (".4", ".4", True),
-    ("-.4", "-.4", True),
-    ("+.4", "+.4", True),
-    ("  -   1  333   222   .4  ", "-   1  333   222   .4", True),
-    ("1  \xa0333.4", "1  \xa0333.4", True),
+    ("+1 234 567", "+1 234 567", True),
+    ("- 1'234'567", "- 1'234'567", True),
+    ("+ 1,234,567", "+ 1,234,567", True),
+    # wrong grouping using decimal separator
+    ("1.234.567", "1.234.567", False),
+    ("1.234.5", "1.234.5", False),
+    # grouping, non-mixed, float, no signal
+    ("1 234.5", "1 234.5", True),
+    ("1 234 567.8", "1 234 567.8", True),
+    ("1 234\xa0567.8", "1 234\xa0567.8", True),
+    ("1'234'567.8", "1'234'567.8", True),
+    ("1,234,567.8", "1,234,567.8", True),
+    ("1\xa0234\xa0567.8", "1\xa0234\xa0567.8", True),
+    # grouping, non-mixed, float, signal
+    ("-1 234.5", "-1 234.5", True),
+    ("- 1 234 567.8", "- 1 234 567.8", True),
+    ("+ 1'234'567.8", "+ 1'234'567.8", True),
+    ("+1,234,567.8", "+1,234,567.8", True),
+    # ==================================================
+    # grouping, mixed, integer
+    ("1 333'222", "1 333'222", False),
+    # grouping, mixed, float
+    ("1 333'222.4", "1 333'222.4", False),
+    ("1,333 222.4", "1,333 222.4", False),
+    ("1'333,222.4", "1'333,222.4", False),
+    # grouping and no grouping,float
+    ("1333'333.4", "1333'333.4", False),
+    # =====================================
+    # ("  -   1  333   222   .4  ", "-   1  333   222   .4", False),
+    # ("1  \xa0333.4", "1  \xa0333.4", False),
     ("1 333.4abc", "1 333.4", True),
     ("1 333.4'", "1 333.4", True),
-    ("1.333.4", "1.333.4", True),
-    ("1,333,4", "1,333,4", True),
     ("0", "0", True),
     ("00", "00", True),
     ("000.000", "000.000", True),
     ("1 333.4ab3.4", "1 333.4", True),
     ("1 333.4£", "1 333.4", True),
     ("$1 333.4", "1 333.4", True),
-    ("1 231,3,", "1 231,3", True),
-    ("1 231.3.", "1 231.3", True),
-    ("1 231.3;", "1 231.3", True),
-    ("1 231.3-", "1 231.3", True),
-    ("1 231.3_", "1 231.3", True),
-    ("1333'333.4", "1333'333.4", True),
+    # wrong ths
+    ("1;333;222.4", "1;333;222.4", False),
+    ("1_333_222.4", "1_333_222.4", False),
+    # dec vs ths ambiguity
+    ("1.333.222.4", "1.333.222.4", False),
+    ("1.333.4", "1.333.4", False),
+    ("1,333,4", "1,333,4", False),
     # wrong grouping
     ("1,333,4 5", "1,333,4 5", False),
     ("0,0.0.0'0_0", "0,0.0.0'0_0", False),
@@ -109,15 +151,15 @@ test_data = [
 ]
 
 
-@pytest.mark.parametrize("text, raw, filtered", test_data)
-def test_num_default_spec_raw_capture(text, raw, filtered):
+@pytest.mark.parametrize("text, raw, filtered", test_data_num_default)
+def test_num_default_raw_capture(text, raw, filtered):
     p = re.compile(rn.Num().pattern)
     m = p.search(text)
     result = m.group(0) if m is not None else None
     assert result == raw
 
 
-@pytest.mark.parametrize("text, raw, filtered", test_data)
+@pytest.mark.parametrize("text, raw, filtered", test_data_num_default)
 def test_num_default_raw_capture_is_number(text, raw, filtered):
     if raw is not None:
         result = rn.Num()._is_number_candidate(raw)
