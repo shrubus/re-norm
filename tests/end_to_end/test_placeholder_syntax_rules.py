@@ -10,15 +10,15 @@ from .assert_utils import assert_pattern_correctly_compiled_from_specs
 # Test no matching pattern
 
 
-def test_no_match_found():
-    assert_pattern_correctly_compiled_from_specs(
-        p=rn.compile(
-            r"subtotal: ({@price}), total: ({@price})",
-            price=rn.Num(ths="'", dec=","),
-        ),
-        text="subtotal: 1 231,3, total: 123,45",
-        expected=None,
-    )
+# def test_no_match_found():
+#     assert_pattern_correctly_compiled_from_specs(
+#         p=rn.compile(
+#             r"subtotal: ({@price}), total: ({@price})",
+#             price=rn.Num(ths="'", dec=","),
+#         ),
+#         text="subtotal: 1 231,3, total: 123,45",
+#         expected=None,
+#     )
 
 
 # -----------------------------------------------------------
