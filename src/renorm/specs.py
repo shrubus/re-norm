@@ -1,10 +1,10 @@
 """
 Declarative regex specifications with explicit normalization semantics.
 
-This module defines small, composable specifications that pair a regular
-expression pattern with a deterministic normalization strategy. Each spec
-describes a precise grammar for a class of textual values and guarantees
-that matched groups can be transformed into a canonical representation.
+This module defines composable specifications that pair a regular expression
+pattern with a deterministic normalization strategy. Each specification
+describes a precise grammar for a class of textual values and guarantees that
+matched groups can be transformed into a canonical representation.
 """
 
 import re
@@ -15,7 +15,16 @@ from functools import cached_property
 
 
 class NormSpec[T](ABC):
-    """Abstract base class to specify a regex pattern coupled to a normalization strategy"""
+    """
+    Abstract specification of a regex pattern coupled to a normalization strategy
+
+    A NormSpec defines:
+      - a regex pattern describing acceptable textual representations
+      - a normalization function that converts a matched group into a canonical
+        value of type T (or None if the group is invalid)
+
+    Subclasses must implement `pattern` and `normalize()`.
+    """
 
     @property
     @abstractmethod
@@ -34,7 +43,16 @@ class NormSpec[T](ABC):
 
 
 class _NoSpec(NormSpec[str]):
-    """Singleton class that signal that a NormSpec is not provided (empty)"""
+    """
+    Internal placeholder specification used when a capturing group has no
+    associated rule, i.e. normalize() returns the raw matched group unchanged.
+
+    The pattern is the empty string (a neutral element in regex composition).
+    Note: the empty pattern matches zero-width when used alone, but acts as a
+    neutral element when embedded in composed regex patterns.
+
+    Implemented as a singleton. Intended for internal use only.
+    """
 
     _instance = None
 
@@ -45,9 +63,15 @@ class _NoSpec(NormSpec[str]):
 
     @property
     def pattern(self) -> str:
+        """
+        Return the empty string (a neutral element in regex composition).
+        Note: the empty pattern matches zero-width when used alone, but acts as a
+        neutral element when embedded in composed regex patterns.
+        """
         return ""
 
     def normalize(self, group: str | None) -> str | None:
+        """No normalization applied: returns the raw matched group unchanged."""
         return group
 
 
@@ -55,14 +79,32 @@ NOSPEC = _NoSpec()
 
 
 @dataclass(frozen=True)
-class Num(NormSpec[float]):  # pylint: disable=too-many-instance-attributes
+class Num(NormSpec[float]):
     """
-    Declarative specification for plain (non-scientific) numeric literals.
+    Specification for plain (non-scientific) numeric literals with configurable
+    decimal and thousands separators.
 
-    Supports configurable decimal and thousands separators, with optional
-    tolerance for inter-token whitespace. The grammar is fully defined by
-    the provided separators and flags, and normalization produces a
-    canonical dot-decimal representation.
+    The `pattern` property exposes a permissive regex used only for capture: it
+    greedily matches number-like fragments to avoid truncating malformed literals.
+    Normalization then applies a strict pattern that enforces the instance's
+    numeric specification. If the captured literal does not satisfy the strict
+    rules, normalization returns None; otherwise it returns a float.
+
+    Parameters:
+        dec: Decimal separator ('.', ',', or '' for integers only).
+        ths: Thousands separator ('.', ',', ''', space, or '' for no grouping).
+
+    Semantics:
+    - If `ths == ''`, the integer part must be ungrouped.
+    - If `ths != ''`, the integer part must be grouped in 3-digit blocks from
+      the right, using `ths` as the thousands separator (or a single space
+      when `ths == ' '`).
+
+    - If `dec == ''`, only integers (no fractional part) are valid.
+    - If `dec != ''`, a fractional part is optional and must use `dec`.
+
+    - An optional sign ('+' or '-') is allowed, with optional trailing
+      whitespace (not configurable).
     """
 
     _all_dec: ClassVar[str] = ".,"
@@ -154,6 +196,11 @@ class Num(NormSpec[float]):  # pylint: disable=too-many-instance-attributes
 
     @cached_property
     def pattern(self) -> str:
+        """
+        Permissive regex pattern used for initial capture of number-like fragments.
+        This pattern is intentionally broad and does not enforce the numeric
+        specification; strict validation is applied during normalization.
+        """
         return self._pattern_capture.pattern
 
     # ===============================================
@@ -168,7 +215,15 @@ class Num(NormSpec[float]):  # pylint: disable=too-many-instance-attributes
     # ===============================================
 
     def normalize(self, group: str | None) -> float | None:
-        """Normalize the captured number"""
+        """
+        Normalize a captured numeric literal according to this specification.
+
+        Returns:
+            A float if the literal satisfies the strict numeric rules defined by
+            this instance (grouping, decimal separator, optional sign, etc.).
+            Returns None if the extracted group is None or does not match the
+            strict pattern.
+        """
 
         re_group = group
         if re_group is None:
