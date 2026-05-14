@@ -7,10 +7,11 @@ describes a precise grammar for a class of textual values and guarantees
 that matched groups can be transformed into a canonical representation.
 """
 
+import re
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Self
-import re
+from typing import Self, ClassVar
+from functools import cached_property
 
 
 class NormSpec(ABC):
@@ -54,7 +55,7 @@ NOSPEC = _NoSpec()
 
 
 @dataclass(frozen=True)
-class Num(NormSpec):
+class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
     """
     Declarative specification for plain (non-scientific) numeric literals.
 
@@ -64,36 +65,120 @@ class Num(NormSpec):
     canonical dot-decimal representation.
     """
 
-    ths: str = ""
+    _all_dec: ClassVar[str] = ".,"
+    _all_ths: ClassVar[str] = ".,' "
+    _all_signals: ClassVar[str] = "-+"
+    _all_ws: ClassVar[str] = " \N{NBSP}\N{NNBSP}"
+
     dec: str = "."
-    signal: str = "-"
-    extraspace: bool = False
+    ths: str = ""
 
     def __post_init__(self) -> None:
-        common = set(self.dec) & set(self.ths) & set(self.signal)
-        if common:
-            raise ValueError(f"Args dec, ths and signal cannot have common characters: {common}")
-        if len(self.dec) != 1:
-            raise ValueError(f"Can only specify one decimal separator: specified {self.dec}")
+
+        # validation
+        if not (len(self.dec) == 1 or self.dec == ""):
+            raise ValueError(f"More than one decimal separator: {self.dec}")
+        if self.dec not in self._all_dec:
+            raise ValueError(f'Decimal separator must be ",", "." or "": {self.dec}')
+
+        if not (len(self.ths) == 1 or self.ths == ""):
+            raise ValueError(f"More than one thousands separator: {self.ths}")
+        if self.ths not in self._all_ths:
+            raise ValueError(
+                f'Thousands separator must be {", ".join(self._all_ths)} or "": {self.ths}'
+            )
+
+        if self.dec and self.ths and self.dec == self.ths:
+            raise ValueError(f"Same separator: 'dec = '{self.dec}', 'ths = {self.ths}'")
+
+    # ===============================================
+    # Pattern constructions: fragments
+    # ===============================================
 
     @property
+    def _re_signal(self) -> str:
+        signals = re.escape(self._all_signals)
+        return rf"(?:[{signals}]\s?)?"
+
+    @property
+    def _re_frac(self) -> str:
+        dec = re.escape(self.dec)
+        return rf"(?:{dec}\d+)"
+
+    @property
+    def _re_int_grouped(self) -> str:
+        ths = rf"[{self._all_ws}]" if self.ths == " " else re.escape(self.ths)
+        return rf"\d{{0,3}}(?:({ths})\d{{3}})*"
+
+    @cached_property
+    def _re_int_ungrouped(self) -> str:
+        return r"\d*"
+
+    @cached_property
+    def _re_int(self) -> str:
+        is_grouped = self.ths != ""
+        return self._re_int_grouped if is_grouped else self._re_int_ungrouped
+
+    # ===============================================
+    # Pattern constructions: full
+    # ===============================================
+
+    @cached_property
+    def _pattern_capture(self) -> re.Pattern[str]:
+        """
+        Permissive pattern: greedly matches string fragments that resemble a numeric
+        representation.
+        """
+        all_sep_symbols = f"{self._all_ths};_".replace(" ", r"\s")
+        all_sep = rf"[{all_sep_symbols}]?"
+        pattern = rf"{self._re_signal}(?:{all_sep}\d+)+"
+        return re.compile(pattern)
+
+    # ===============================================
+
+    @cached_property
+    def _pattern_spec(self) -> re.Pattern[str]:
+
+        is_integer = self.dec == ""
+
+        if is_integer:
+            num_pattern = rf"{self._re_signal}{self._re_int}"
+            return re.compile(num_pattern)
+
+        num_pattern = rf"{self._re_signal}{self._re_int}{self._re_frac}?"
+        return re.compile(num_pattern)
+
+    # ===============================================
+    # Views
+    # ===============================================
+
+    @cached_property
     def pattern(self) -> str:
-        """Construct plain number general pattern"""
-        ws = r"\s?" if self.extraspace else ""
+        return self._pattern_capture.pattern
 
-        signal = rf"(?:[{re.escape(self.signal)}]?\s?)" if self.signal else ""
-        dec = rf"(?:{re.escape(self.dec)}{ws}\d*)"
-        ths = rf"(?:[{re.escape(self.ths)}]{ws}\d{{3}}{ws})*" if self.ths else ""
-        end = rf"\d{{0,3}}{ws}"
+    # ===============================================
+    # check number candidate
+    # ===============================================
 
-        return signal + end + ths + dec
+    def _is_number_candidate(self, re_group: str) -> bool:
+        return self._pattern_spec.fullmatch(re_group) is not None
+
+    # ===============================================
+    # Normalize number candidate if any
+    # ===============================================
 
     def normalize(self, group: str | None) -> str | None:
         """Normalize the captured number"""
-        if group is None:
+
+        re_group = group
+        if re_group is None:
             return None
-        if self.extraspace:
-            group = re.sub(r"\s+", "", group)
-        if self.ths:
-            group = re.sub(f"[{re.escape(self.ths)}]", "", group)
-        return group.replace(self.dec, ".")
+
+        if not self._is_number_candidate(re_group):
+            return None
+
+        re_group = re.sub(r"([+-])\s?", lambda m: m[1], re_group)  # remove signal trailing space
+        re_group = re_group.replace("+", "")
+        re_group = re.sub(rf"{re.escape(self.ths)}", "", re_group)
+        re_group = re.sub(r"\s+", "", re_group)
+        return re_group.replace(self.dec, ".") if self.dec else re_group
