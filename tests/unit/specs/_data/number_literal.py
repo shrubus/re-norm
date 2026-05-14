@@ -110,45 +110,6 @@ def gen_cases(  # pylint: disable=R0917&R0913
         )
 
 
-# def gen_wrong_cases(  # pylint: disable=R0917&R0913
-#     numbers: list[float],
-#     dec: str,
-#     ths: str,
-#     ungrouped: bool,
-#     mixed_ths: bool,
-# ) -> Generator[tuple[str, ...]]:
-#     """
-#     Yield (literal, number) pairs that are valid under a more permissive
-#     spec but not under the provided strict spec.
-
-#     The permissive superset is derived from the module default `num_default`
-#     and widens: thousands separators, mixed_ths=True, ungrouped=True, extraspace=1.
-#     """
-
-#     strict_cases = set(
-#         gen_cases(
-#             numbers,
-#             dec=dec,
-#             ths=ths,
-#             ungrouped=ungrouped,
-#             mixed_ths=mixed_ths,
-#             extraspace=0,
-#         )
-#     )
-
-#     permissive_ths = "".join(dict.fromkeys(ths + num_default.ths))
-#     for case in gen_cases(
-#         numbers,
-#         dec=dec,
-#         ths=permissive_ths.replace(dec, ""),
-#         mixed_ths=True,
-#         ungrouped=True,
-#         extraspace=2,
-#     ):
-#         if case not in strict_cases:
-#             yield case
-
-
 if __name__ == "__main__":
 
     VERBOSE = True
@@ -201,17 +162,3 @@ if __name__ == "__main__":
         print('(literal, number) cases for dec = "." and ths=" "')
         print("numbers = [0, -1234.5, 12345678.9]")
         print(*gen_cases(numbers=[0, -1234.5, 12345678.9]), sep="\n")
-
-    # number_literal_cases = list(
-    #     gen_wrong_cases(
-    #         numbers=[0, 1234567.8, 123, 0.123],
-    #         dec=".",
-    #         ths="' ",
-    #         ungrouped=True,
-    #         mixed_ths=False,
-    #         # extraspace=0,
-    #     )
-    # )
-
-    # # print(*number_literal_cases, sep="\n")
-    # print(len(number_literal_cases))

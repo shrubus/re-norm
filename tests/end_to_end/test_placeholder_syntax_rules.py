@@ -65,7 +65,7 @@ def test_capture_one_positional_spec():
     assert_pattern_correctly_compiled_from_specs(
         p=rn.compile(r"\w+:?\s({@0})", rn.Num(dec=",")),
         text="total: 123,45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -77,7 +77,7 @@ def test_capture_two_positional_specs():
             rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -89,7 +89,7 @@ def test_capture_one_of_two_positional_specs():
             rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -101,7 +101,7 @@ def test_unused_positional_spec():
             rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
+        expected=(1231.3,),
     )
 
 
@@ -112,7 +112,7 @@ def test_capture_reused_positional_spec():
             rn.Num(ths=" ", dec=","),
         ),
         text="subtotal: 1 231,3, total: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -123,7 +123,7 @@ def test_capture_one_of_two_reused_positional_spec():
             rn.Num(ths=" ", dec=","),
         ),
         text="subtotal: 1 231,3, total: 123,45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -139,7 +139,7 @@ def test_capture_two_named_specs():
             total=rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -151,7 +151,7 @@ def test_capture_one_of_two_named_specs():
             total=rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
+        expected=(1231.3,),
     )
 
 
@@ -163,7 +163,7 @@ def test_unused_named_spec():
             total=rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
+        expected=(1231.3,),
     )
 
 
@@ -174,7 +174,7 @@ def test_capture_reused_named_spec():
             value=rn.Num(ths=" ", dec=","),
         ),
         text="subtotal: 1 231,3, total: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -185,7 +185,7 @@ def test_capture_one_of_two_reused_named_spec():
             value=rn.Num(ths=" ", dec=","),
         ),
         text="subtotal: 1 231,3, total: 123,45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -201,7 +201,7 @@ def test_capture_one_positional_and_one_named_specs():
             total=rn.Num(dec=","),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -216,5 +216,5 @@ def test_capture_spec_and_capture_without_normalization():
             value=rn.Num(ths=" ", dec=","),
         ),
         text="subtotal: 1 231,3, total: 123,45",
-        expected=("1 231,3", "123.45"),
+        expected=("1 231,3", 123.45),
     )

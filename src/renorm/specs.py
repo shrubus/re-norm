@@ -14,7 +14,7 @@ from typing import Self, ClassVar
 from functools import cached_property
 
 
-class NormSpec(ABC):
+class NormSpec[T](ABC):
     """Abstract base class to specify a regex pattern coupled to a normalization strategy"""
 
     @property
@@ -23,7 +23,7 @@ class NormSpec(ABC):
         """Construct a pattern based on instance attributes"""
 
     @abstractmethod
-    def normalize(self, group: str | None) -> str | None:
+    def normalize(self, group: str | None) -> T | None:
         """
         Normalize the regex group captured using the constructed regex pattern.
         Returns None if group is None (e.g. for optional capturing groupd r"(a)?(b)").
@@ -33,7 +33,7 @@ class NormSpec(ABC):
         return self.pattern
 
 
-class _NoSpec(NormSpec):
+class _NoSpec(NormSpec[str]):
     """Singleton class that signal that a NormSpec is not provided (empty)"""
 
     _instance = None
@@ -55,7 +55,7 @@ NOSPEC = _NoSpec()
 
 
 @dataclass(frozen=True)
-class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
+class Num(NormSpec[float]):  # pylint: disable=too-many-instance-attributes
     """
     Declarative specification for plain (non-scientific) numeric literals.
 
@@ -167,7 +167,7 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
     # Normalize number candidate if any
     # ===============================================
 
-    def normalize(self, group: str | None) -> str | None:
+    def normalize(self, group: str | None) -> float | None:
         """Normalize the captured number"""
 
         re_group = group
@@ -181,4 +181,5 @@ class Num(NormSpec):  # pylint: disable=too-many-instance-attributes
         re_group = re_group.replace("+", "")
         re_group = re.sub(rf"{re.escape(self.ths)}", "", re_group)
         re_group = re.sub(r"\s+", "", re_group)
-        return re_group.replace(self.dec, ".") if self.dec else re_group
+        number_literal = re_group.replace(self.dec, ".") if self.dec else re_group
+        return float(number_literal)

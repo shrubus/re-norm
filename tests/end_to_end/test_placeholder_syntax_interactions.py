@@ -18,7 +18,7 @@ def test_placeholder_outside_lookahead_lookbehind():
             rn.Num(ths=" ", dec="."),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
+        expected=(1231.3,),
     )
 
 
@@ -35,7 +35,7 @@ def test_placeholder_inside_lookbehind():
             rn.Num(ths=" ", dec="."),
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3",),
+        expected=(1231.3,),
     )
 
 
@@ -50,7 +50,7 @@ def test_escaped_braces_are_literal():
             rn.Num(),
         ),
         text="{not_a_placeholder} 123.45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -61,7 +61,7 @@ def test_raw_string_braces_are_literal():
             rn.Num(),
         ),
         text="{not_a_placeholder} 123.45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -73,7 +73,7 @@ def test_correct_use_of_f_strings_placeholders():
             rn.Num(),
         ),
         text="f-string placeholder 123.45",
-        expected=("123.45",),
+        expected=(123.45,),
     )
 
 
@@ -88,7 +88,7 @@ def test_regex_quantifier():
             rn.Num(),
         ),
         text="corn: 1.1 k€, barley: 1.2 k€",
-        expected=("1.1",),
+        expected=(1.1,),
     )
 
 
@@ -99,7 +99,7 @@ def test_regex_range_quantifier():
             rn.Num(),
         ),
         text="corn: 1.1 k€, barley: 1.2 k€",
-        expected=("1.2",),
+        expected=(1.2,),
     )
 
 
@@ -110,7 +110,7 @@ def test_quantifier_around_capture():
             rn.Num(),
         ),
         text="item: 1.1, item: 1.2",
-        expected=("1.2",),
+        expected=(1.2,),
     )
 
 
@@ -125,5 +125,5 @@ def test_backreference_to_placeholder_capture():
             rn.Num(),
         ),
         text="42.3-42.3",
-        expected=("42.3",),
+        expected=(42.3,),
     )

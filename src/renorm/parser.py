@@ -9,10 +9,10 @@ from .specs import NormSpec
 from .exceptions import PatternError, PatternIndexError, PatternKeyError
 
 
-class _Parser:  # pylint: disable=too-few-public-methods
+class _Parser[T]:  # pylint: disable=too-few-public-methods
     """Parse renorm raw pattern, build regex pattern and map capturing groups to specs"""
 
-    def __init__(self, raw: str, /, *specs: NormSpec, **named_specs: NormSpec) -> None:
+    def __init__(self, raw: str, /, *specs: NormSpec[T], **named_specs: NormSpec[T]) -> None:
         self._raw_pattern = self._validate_raw_pattern(raw)
         self.specs = self._validate_specs(specs)
         self.named_specs = self._validate_named_specs(named_specs).copy()
@@ -36,24 +36,24 @@ class _Parser:  # pylint: disable=too-few-public-methods
         return raw
 
     @staticmethod
-    def _validate_specs(specs: tuple[NormSpec, ...]) -> tuple[NormSpec, ...]:
+    def _validate_specs(specs: tuple[NormSpec[T], ...]) -> tuple[NormSpec[T], ...]:
         for i, s in enumerate(specs):
             if not isinstance(s, NormSpec):
                 raise TypeError(f"positional spec @{i} must be a NormSpec, got {type(s)!r}")
         return specs
 
     @staticmethod
-    def _validate_named_specs(named_specs: dict[str, NormSpec]) -> dict[str, NormSpec]:
+    def _validate_named_specs(named_specs: dict[str, NormSpec[T]]) -> dict[str, NormSpec[T]]:
         for k, s in named_specs.items():
             if not isinstance(s, NormSpec):
                 raise TypeError(f"keyword spec @{k} must be a NormSpec, got {type(s)!r}")
         return named_specs
 
-    def _map_specs_to_capture_groups(self, pattern: str) -> tuple[str, dict[str, NormSpec]]:
+    def _map_specs_to_capture_groups(self, pattern: str) -> tuple[str, dict[str, NormSpec[T]]]:
         """Tag regex pattern numbered placeholders with named groups (only capturing groups)."""
 
         counter = itertools.count()
-        groupname_to_spec: dict[str, NormSpec] = {}
+        groupname_to_spec: dict[str, NormSpec[T]] = {}
 
         def repl(m: re.Match[str]) -> str:
             group = m.group(1)
@@ -105,7 +105,7 @@ class _Parser:  # pylint: disable=too-few-public-methods
 
         return re.sub(r"\{@([A-Za-z_]\w*)\}", repl, pattern)
 
-    def _parse(self) -> tuple[str, dict[str, NormSpec]]:
+    def _parse(self) -> tuple[str, dict[str, NormSpec[T]]]:
         """
         Build a regex pattern fully tagged with named capture groups that map
         one-to-one to specs and named_specs

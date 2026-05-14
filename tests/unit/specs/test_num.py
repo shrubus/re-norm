@@ -124,8 +124,8 @@ def test_num_capture_ackward_number_literals(case):
     p = re.compile(num.pattern)
     m = p.search(literal)
     assert m is not None
-    assert m.group(0) == literal
-    assert float(num.normalize(m.group(0))) == number
+    assert (capture := m.group(0)) == literal
+    assert num.normalize(capture) == number
 
 
 data_symbols_in_different_context = [
@@ -185,31 +185,31 @@ def test_num_capture_no_malformed_number_literals(case):
 @pytest.mark.parametrize("case", number_literal.gen_cases(pos_ints), ids=idsfn)
 def test_num_normalize_well_formed_positive_integers(case):
     num, (literal, number) = case
-    assert float(num.normalize(literal)) == number
+    assert num.normalize(literal) == number
 
 
 @pytest.mark.parametrize("case", number_literal.gen_cases(neg_ints), ids=idsfn)
 def test_num_normalize_well_formed_negative_integers(case):
     num, (literal, number) = case
-    assert float(num.normalize(literal)) == number
+    assert num.normalize(literal) == number
 
 
 @pytest.mark.parametrize("case", number_literal.gen_cases(pos_floats), ids=idsfn)
 def test_num_normalize_well_formed_positive_floats(case):
     num, (literal, number) = case
-    assert float(num.normalize(literal)) == number
+    assert num.normalize(literal) == number
 
 
 @pytest.mark.parametrize("case", number_literal.gen_cases(neg_floats), ids=idsfn)
 def test_num_normalize_well_formed_negative_floats(case):
     num, (literal, number) = case
-    assert float(num.normalize(literal)) == number
+    assert num.normalize(literal) == number
 
 
 @pytest.mark.parametrize("case", number_literal.gen_cases(decimals), ids=idsfn)
 def test_num_normalize_well_formed_decimals(case):
     num, (literal, number) = case
-    assert float(num.normalize(literal)) == number
+    assert num.normalize(literal) == number
 
 
 #########################################
@@ -224,7 +224,7 @@ def test_num_ignores_context_left_side_with_space(context, case):
     m = p.search(f"{context} {literal}")
     assert m is not None
     assert (capture := m.group(0).strip()) == literal
-    assert float(num.normalize(capture)) == number
+    assert num.normalize(capture) == number
 
 
 @pytest.mark.parametrize("context", ["text", "$"])
@@ -235,7 +235,7 @@ def test_num_ignores_context_left_side_without_space(context, case):
     m = p.search(f"{context}{literal}")
     assert m is not None
     assert (capture := m.group(0)) == literal
-    assert float(num.normalize(capture)) == number
+    assert num.normalize(capture) == number
 
 
 @pytest.mark.parametrize("context", [" EUR", "€", ",", ";", ".", "-"])
@@ -246,7 +246,7 @@ def test_num_ignores_context_right_side(context, case):
     m = p.search(f"{literal}{context}")
     assert m is not None
     assert (capture := m.group(0)) == literal
-    assert float(num.normalize(capture)) == number
+    assert num.normalize(capture) == number
 
 
 #########################################

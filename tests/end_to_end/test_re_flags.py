@@ -22,7 +22,7 @@ def test_re_verbose_flag():
             flags=re.VERBOSE,
         ),
         text="subtotal: 1 231.3, total: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -35,7 +35,7 @@ def test_re_ignorecase_flag():
             flags=re.IGNORECASE,
         ),
         text="subtotal: 1 231.3, TOTAL: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
 
 
@@ -51,5 +51,5 @@ def test_re_verbose_and_ignorecase_flags():
             flags=re.VERBOSE | re.IGNORECASE,
         ),
         text="subtotal: 1 231.3, TOTAL: 123,45",
-        expected=("1231.3", "123.45"),
+        expected=(1231.3, 123.45),
     )
